@@ -12,6 +12,8 @@ public class RobotRabbitMQ implements Runnable {
 	
 	private ConnectionFactory _factory;
     private Connection _connection;
+    private Channel _channel;
+    private static final long  DRONE_ID = 1l;
 
 	public void run() {
 		init();
@@ -32,8 +34,14 @@ public class RobotRabbitMQ implements Runnable {
         _factory.setPassword(Endpoints.RABBITMQ_USERPASSWORD);
         _factory.setPort(Endpoints.RABBITMQ_SERVERPORT);
 
+
+
         try {
             _connection = _factory.newConnection();
+            if(_connection != null) {
+                _channel = _connection.createChannel();
+                _channel.exchangeDeclare(Endpoints.RABBITMQ_EXCHANGE_NAME, Endpoints.RABBITMQ_EXCHANGE_TYPE);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         } catch (TimeoutException e) {
@@ -52,9 +60,7 @@ public class RobotRabbitMQ implements Runnable {
 		while(true) {
 			String message = message1 + battery + message2 + latitude + message3 + longitude + message4;
 			sendMessage(message);
-			battery--;
-			if( battery <= -1 )
-				battery = 100;
+			battery = (battery - 1) % 101;
 			latitude = latitude - 0.000010;
 			longitude = longitude - 0.000010;
 			Thread.sleep(500);
@@ -63,17 +69,8 @@ public class RobotRabbitMQ implements Runnable {
 	}
 	
 	private void sendMessage(String message) throws Exception {
-		long droneId = 1;
-		
-		if (_connection == null)
-            return;
-
-        Channel channel = _connection.createChannel();
-
-        channel.exchangeDeclare(Endpoints.RABBITMQ_EXCHANGE_NAME, Endpoints.RABBITMQ_EXCHANGE_TYPE);
-        
-        channel.basicPublish(Endpoints.RABBITMQ_EXCHANGE_NAME, "drone.info."+droneId, null, message.getBytes());
-        System.out.println(" [x] Sent '" + "drone.info."+droneId + "':'" + message + "'");
+        _channel.basicPublish(Endpoints.RABBITMQ_EXCHANGE_NAME, "drone.info."+DRONE_ID, null, message.getBytes());
+        System.out.println(" [x] Sent '" + "drone.info."+DRONE_ID + "':'" + message + "'");
 	}
 	
 }
